@@ -1,0 +1,234 @@
+package nl.hz.ict.popp0038.jxplorer;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Enumeration;
+
+import javax.swing.Icon;
+import javax.swing.filechooser.FileSystemView;
+import javax.swing.tree.TreeNode;
+
+
+public class JXploreFile implements TreeNode {
+
+	private File file;
+	private JXploreFile[] foldersCache;
+
+	
+	public JXploreFile() {
+		this(FileSystemView.getFileSystemView().getRoots()[0]);
+	}
+	
+	public JXploreFile(String filepath) {
+		this(new File(filepath));
+	}
+	
+	public JXploreFile(File file) {
+		this.file = file;
+	}
+	
+	/**
+	 * Set cache files
+	 * @param files files which need to be cached
+	 */
+	private void initCache(JXploreFile[] files) {
+		this.foldersCache = files;
+	}
+	
+	/**
+	 * clear the cache
+	 */
+	public void emptyCache() {
+		this.foldersCache = null;
+	}
+	
+	/**
+	 * Get file
+	 * @return file
+	 */
+	public File getFile() {
+		return file;
+	}
+
+	/**
+	 * get filename
+	 * @return name of the file as a String
+	 */
+	public String getName() {
+		return FileSystemView.getFileSystemView().getSystemDisplayName(file);
+	}
+	
+	/**
+	 * Get file path
+	 * @return path
+	 */
+	public String getPath() {
+		if (FileSystemView.getFileSystemView().isFileSystem(file))
+			return file.getPath();
+		else
+			return getName();
+	}
+	
+	/**
+	 * get date modified
+	 * @return date
+	 */
+	public Date lastModified() {
+		return new Date(file.lastModified());
+	}
+	
+	/**
+	 * get file length in bytes
+	 * @return file length in bytes
+	 */
+	public long getLength() {
+		return file.length();
+	}
+	
+	/**
+	 * Get file icon
+	 * @return icon
+	 */
+	public Icon getIcon() {
+		Icon ico = FileSystemView.getFileSystemView().getSystemIcon(file);
+		return ico;
+	}
+	
+	/**
+	 * check if file is a directory
+	 * @return true/false
+	 */
+	public boolean isDirectory() {
+		return file.isDirectory();
+	}
+	
+	/**
+	 * Check if file is a drive
+	 * @return true/false
+	 */
+	public boolean isDrive() {
+		return FileSystemView.getFileSystemView().isDrive(file);
+	}
+	
+	/**
+	 * get file description
+	 * @return file description
+	 */
+	public String getDescription() {
+		if (isDirectory()) {
+			long ln = 0;
+			for (JXploreFile fl : getSubFiles()) {
+				ln += fl.getLength();
+			}
+			return "" + getSubFiles().length + " objects (" + ln / 1024
+					+ " kB)";
+		}
+		return FileSystemView.getFileSystemView().getSystemTypeDescription(file);
+	}
+	
+    /**
+     * @return returns array of subfiles and folders
+     */
+	public JXploreFile[] getSubFiles() {
+		return makeFiles(FileSystemView.getFileSystemView().getFiles(file,
+				false));
+	}
+    
+
+    /**
+     * @return returns array of subfolders 
+     */
+	public JXploreFile[] getSubFolders() {
+		JXploreFile[] childFilesAndFolders = getSubFiles();
+		ArrayList<JXploreFile> directoryList = new ArrayList<JXploreFile>();
+		for (JXploreFile iterationFile : childFilesAndFolders) {
+			if (iterationFile.isDirectory()) {
+				directoryList.add(iterationFile);
+			}
+		}
+		return directoryList.toArray(new JXploreFile[directoryList.size()]);
+	}    
+    
+    /**
+     * Adds single files to an array. Prints error message if file doesn't exist.
+     * @param files to be added to the array
+     * @return an array of files
+     */
+    private JXploreFile[] makeFiles(File[] files) {
+    	if(foldersCache != null) {
+    		return foldersCache;
+    	}
+    	JXploreFile[] subFiles;
+		if(files != null) {
+			subFiles = new JXploreFile[files.length];
+            for (int i = 0; i < files.length; i++){
+                subFiles[i] = new JXploreFile(files[i]);
+            }
+        } 
+		else {
+            subFiles = new JXploreFile[0];
+        }
+		initCache(subFiles);
+		return subFiles;
+    }
+
+    @Override
+	public Enumeration<?> children() {
+		return new Enumeration<Object>() {
+			int index = 0;
+
+			@Override
+			public boolean hasMoreElements() {
+				return index < getSubFolders().length;
+			}
+
+			@Override
+			public JXploreFile nextElement() {
+				return getSubFolders()[index++];
+			}
+		};
+	}
+
+    
+	@Override
+	public boolean getAllowsChildren() {
+		return this.isDirectory();
+	}
+
+	@Override
+	public TreeNode getChildAt(int childIndex) {
+		return getSubFolders()[childIndex];
+	}
+
+	@Override
+	public int getChildCount() {
+		return getSubFolders().length;
+	}
+
+	@Override
+	public int getIndex(TreeNode node) {
+		JXploreFile[] folders = getSubFolders();
+		for (int n=0; n<folders.length; n++) 
+			if (folders[n].equals(node))
+				return n;
+		// Niet gevonden
+		return -1;
+	}
+
+	@Override
+	public TreeNode getParent() {
+		if (file.getParentFile() == null)
+			return null;
+		return new JXploreFile(file.getParentFile());
+	}
+
+	@Override
+	public boolean isLeaf() {
+		if(! file.isDirectory()) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+}
